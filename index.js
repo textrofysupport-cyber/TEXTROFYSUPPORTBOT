@@ -1,14 +1,13 @@
-// TEXTROFYSUPPORTBOT - Master Node.js (Telegraf + Google Generative AI + Express Server)
+// TEXTROFYSUPPORTBOT - Ultimate Master Node.js (Telegraf + Native Gemini Flash API + Express)
 const { Telegraf } = require('telegraf');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const express = require('express');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PORT = process.env.PORT || 3000;
 
-if (!BOT_TOKEN || !GEMINI_API_KEY) {
-  console.error("❌ ERROR: BOT_TOKEN or GEMINI_API_KEY is missing!");
+if (!BOT_TOKEN) {
+  console.error("❌ ERROR: BOT_TOKEN is missing!");
   process.exit(1);
 }
 
@@ -17,7 +16,7 @@ const app = express();
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.status(200).send('🤖 Textrofy Support Bot is running live & free 24x7!');
+  res.status(200).send('🤖 Textrofy Ultimate Support Bot is running live & free 24x7!');
 });
 
 app.listen(PORT, () => {
@@ -25,9 +24,15 @@ app.listen(PORT, () => {
 });
 
 const bot = new Telegraf(BOT_TOKEN);
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
+// इन-मेमोरी सेशन और प्री-सेट क्विक रिप्लाई कमांड्स
 const userSessions = {}; 
+const quickPresets = {
+  "/help": "💡 *Textrofy Support Hub*\n\nHere are your quick options:\n• /start - Link your app\n• /ai - Switch to AI Assistant mode\n• /manual - Talk to Human Admin\n• /quick - Fast preset replies",
+  "/calculators": "📊 *Calculators & Tools:* Access all financial, utility, and PWA calculation tools instantly from your Textrofy Hub dashboard.",
+  "/backup": "🔄 *Data Backup Guide:* Your app data is safely stored locally in your browser/PWA local storage. Use the export/import button inside the app settings.",
+  "/pricing": "💎 *Pricing Tier:* You are currently enjoying the Lifetime Free Ecosystem tier of Textrofy Hub!"
+};
 
 // /start कमांड
 bot.start(async (ctx) => {
@@ -42,66 +47,98 @@ bot.start(async (ctx) => {
 
   userSessions[telegramId] = {
     currentApp: appName,
-    aiMode: true,
-    history: []
+    mode: "ai", // 'ai', 'quick', या 'manual'
   };
 
-  await ctx.reply(`👋 Welcome to Textrofy Support!\n\nYour account is successfully linked with **${appName}**.\n\n🤖 AI Assistant is active. Ask me anything about your app, calculations, or support!`, { parse_mode: 'Markdown' });
+  await ctx.reply(`👋 Welcome to Textrofy Support!\n\nYour account is successfully linked with **${appName}**.\n\nChoose your mode:\n🤖 /ai - Smart AI Assistant\n⚡ /quick - Fast Preset Menu\n👤 /manual - Human Admin`, { parse_mode: 'Markdown' });
 });
 
-// ऐप स्विचिंग एक्शन
-bot.action(/link_(.+)/, async (ctx) => {
-  const telegramId = ctx.from.id;
-  const appName = ctx.match[1].toUpperCase();
+// मोड बदलने के कमांड्स
+bot.command('ai', async (ctx) => {
+  if (userSessions[ctx.from.id]) userSessions[ctx.from.id].mode = 'ai';
+  await ctx.reply("🤖 *AI Assistant Mode* activated! Ask me anything about your app.");
+});
 
-  if (!userSessions[telegramId]) {
-    userSessions[telegramId] = { currentApp: appName, aiMode: true, history: [] };
-  } else {
-    userSessions[telegramId].currentApp = appName;
+bot.command('quick', async (ctx) => {
+  if (userSessions[ctx.from.id]) userSessions[ctx.from.id].mode = 'quick';
+  await ctx.reply("⚡ *Quick Preset Mode* activated!\n\nType or choose a command:\n/calculators\n/backup\n/pricing\n/help");
+});
+
+bot.command('manual', async (ctx) => {
+  if (userSessions[ctx.from.id]) userSessions[ctx.from.id].mode = 'manual';
+  await ctx.reply("👤 *Human Admin Mode* activated! Your messages will now be sent directly to human support.");
+});
+
+// प्री-सेट कमांड हैंडलर
+bot.hears(['/help', '/calculators', '/backup', '/pricing'], async (ctx) => {
+  const text = ctx.message.text;
+  if (quickPresets[text]) {
+    await ctx.reply(quickPresets[text], { parse_mode: 'Markdown' });
   }
-
-  await ctx.reply(`🔄 Switched context! You are now connected with **${appName}** app data. How can I help you?`, { parse_mode: 'Markdown' });
 });
 
-// टेक्स्ट मैसेज हैंडलर (AI & Manual Mode)
+// टेक्स्ट मैसेज हैंडलर (Smart 3-Way Logic)
 bot.on('text', async (ctx) => {
   const telegramId = ctx.from.id;
   const userText = ctx.message.text;
 
+  // अगर यूजर कमांड टाइप कर रहा है तो इग्नोर करें
+  if (userText.startsWith('/')) return;
+
   if (!userSessions[telegramId]) {
-    userSessions[telegramId] = { currentApp: "TEXTROFY HUB", aiMode: true, history: [] };
+    userSessions[telegramId] = { currentApp: "TEXTROFY HUB", mode: "ai" };
   }
 
   const session = userSessions[telegramId];
 
-  if (!session.aiMode) {
-    await ctx.reply("📨 Your message has been sent to the human support team. We will reply shortly!");
+  // 1. Manual Mode
+  if (session.mode === 'manual') {
+    await ctx.reply("📨 Your message has been forwarded to the human support team. We will reply shortly!");
     return;
   }
 
+  // 2. Quick Mode (अगर AI की जरूरत न हो या तुरंत जवाब चाहिए)
+  if (session.mode === 'quick') {
+    await ctx.reply("⚡ *Quick Reply:* For instant assistance, please use /help or check our dashboard links!", { parse_mode: 'Markdown' });
+    return;
+  }
+
+  // 3. AI Mode (Gemini 3.8 Flash Direct Fetch API)
   try {
-    // आपके अकाउंट के हिसाब से सबसे सटीक और लेटेस्ट मॉडल
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured.");
+    }
+
+    // नेटिव फेच का उपयोग ताकि कोई पैकेज एरर न आए
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: `You are an expert, polite AI support assistant for the app "${session.currentApp}". Answer concisely in Hindi, Hinglish, or English based on user query. User Query: ${userText}` }]
+        }]
+      })
+    });
+
+    const data = await response.json();
     
-    const prompt = `You are an expert and polite AI support assistant for the app "${session.currentApp}". 
-    Help the user accurately and concisely. Reply in Hindi, Hinglish, or English matching the user's language. 
-    User Query: ${userText}`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const aiReply = response.text();
-
-    await ctx.reply(aiReply);
+    if (data.candidates && data.candidates[0].content.parts[0].text) {
+      const aiReply = data.candidates[0].content.parts[0].text;
+      await ctx.reply(aiReply);
+    } else {
+      throw new Error("Invalid response from Gemini API");
+    }
 
   } catch (error) {
-    console.error("AI Error:", error);
-    await ctx.reply("⚠️ Maaf kijiye, abhi AI system busy hai. Kripya thodi der baad koshish karein.");
+    console.error("AI Fallback Error:", error);
+    // ऑटोमैटिक फॉलबैक: अगर AI काम न करे तो तुरंत क्विक रिप्लाई मोड से जवाब दे देगा ताकि यूजर अटके नहीं!
+    await ctx.reply("⚡ *Smart Fallback:* AI is taking a moment, but here is your instant help:\n\n" + quickPresets["/help"], { parse_mode: 'Markdown' });
   }
 });
 
 // बोट लॉन्च
 bot.launch().then(() => {
-  console.log("🤖 Telegram Bot launched successfully!");
+  console.log("🤖 Textrofy Ultimate Master Bot launched successfully!");
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
