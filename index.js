@@ -1,27 +1,32 @@
-// TEXTROFYSUPPORTBOT - Master Node.js (Telegraf + Google Generative AI)
+// TEXTROFYSUPPORTBOT - Master Node.js (Telegraf + Google Generative AI + Express Server)
 const { Telegraf } = require('telegraf');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const express = require('express');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const PORT = process.env.PORT || 3000;
 
-if (!BOT_TOKEN) {
-  console.error("❌ ERROR: BOT_TOKEN is missing!");
+if (!BOT_TOKEN || !GEMINI_API_KEY) {
+  console.error("❌ ERROR: BOT_TOKEN or GEMINI_API_KEY is missing!");
   process.exit(1);
 }
 
-if (!GEMINI_API_KEY) {
-  console.error("❌ ERROR: GEMINI_API_KEY is missing!");
-  process.exit(1);
-}
+// एक्सप्रेस सर्वर ताकि Render इसे हमेशा ऑनलाइन रखे
+const app = express();
+app.get('/', (req, res) => {
+  res.send('🤖 Textrofy Support Bot is running live & free 24x7!');
+});
+app.listen(PORT, () => {
+  console.log(`🌐 Server is listening on port ${PORT}`);
+});
 
 const bot = new Telegraf(BOT_TOKEN);
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// इन-मेमोरी सेशन स्टोर
 const userSessions = {}; 
 
-// /start कमांड या ऐप लिंक हैंडलर
+// /start कमांड
 bot.start(async (ctx) => {
   const telegramId = ctx.from.id;
   const payload = ctx.payload; 
@@ -72,8 +77,7 @@ bot.on('text', async (ctx) => {
   }
 
   try {
-    // आपके AI Studio वाले मॉडल (gemini-3.8-flash) का इस्तेमाल
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     
     const prompt = `You are an expert and polite AI support assistant for the app "${session.currentApp}". 
     Help the user accurately and concisely. Reply in Hindi, Hinglish, or English matching the user's language. 
@@ -92,9 +96,8 @@ bot.on('text', async (ctx) => {
 });
 
 // बोट लॉन्च
-bot.launch().then(() => {
-  console.log("🤖 Textrofy Master Bot is running live & free!");
-});
+bot.launch();
+console.log("🤖 Textrofy Master Bot launched successfully!");
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
