@@ -14,9 +14,12 @@ if (!BOT_TOKEN || !GEMINI_API_KEY) {
 
 // एक्सप्रेस सर्वर ताकि Render इसे हमेशा ऑनलाइन रखे
 const app = express();
+app.use(express.json());
+
 app.get('/', (req, res) => {
-  res.send('🤖 Textrofy Support Bot is running live & free 24x7!');
+  res.status(200).send('🤖 Textrofy Support Bot is running live & free 24x7!');
 });
+
 app.listen(PORT, () => {
   console.log(`🌐 Server is listening on port ${PORT}`);
 });
@@ -77,7 +80,8 @@ bot.on('text', async (ctx) => {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // आपके अकाउंट के हिसाब से सबसे सटीक और लेटेस्ट मॉडल
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
     
     const prompt = `You are an expert and polite AI support assistant for the app "${session.currentApp}". 
     Help the user accurately and concisely. Reply in Hindi, Hinglish, or English matching the user's language. 
@@ -96,8 +100,9 @@ bot.on('text', async (ctx) => {
 });
 
 // बोट लॉन्च
-bot.launch();
-console.log("🤖 Textrofy Master Bot launched successfully!");
+bot.launch().then(() => {
+  console.log("🤖 Telegram Bot launched successfully!");
+});
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
